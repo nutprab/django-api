@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User, Group
 
-from .permissions import CheckPermission, IsUserManager, IsUserDeliveryCrew, IsUserCustomer
+from .permissions import IsUserManager, IsUserDeliveryCrew, IsUserCustomer
 from .models import Category, MenuItem, Cart, Order, OrderItem
 from .serializers import (
     CategorySerializer,
@@ -26,8 +26,10 @@ class MenuItemView(generics.ListCreateAPIView):
     serializer_class = MenuItemSerializer
 
     def get_permissions(self):
-        if self.request.method in ["POST"]:
+        if self.request.method in ["POST", "PUT", "PATCH", "DELETE"]:
             self.permission_classes = [IsAdminUser | IsUserManager]
+        else:
+            self.permission_classes = []
         return super(MenuItemView, self).get_permissions()
 
 class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
@@ -37,6 +39,8 @@ class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
     def get_permissions(self):
         if self.request.method in ["POST", "PUT", "PATCH", "DELETE"]:
             self.permission_classes = [IsAdminUser | IsUserManager]
+        else:
+            self.permission_classes = []
         return super(SingleMenuItemView, self).get_permissions()
 
 class CategoryView(generics.ListCreateAPIView):
@@ -94,10 +98,21 @@ class CartMenuItemView(generics.ListCreateAPIView, generics.DestroyAPIView):
         return Cart.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        request = self.request
+        id = int(request.data.get("menuitem_id"))
+        menuitem = MenuItem.objects.all().filter(id=id)
+        menuitemserializer = MenuItemSerializer(menuitem, many=True)
+        unitprice = menuitemserializer.data[0]["price"]
+        totalprice = str(round(float(unitprice) * float(self.request.data.get("quantity")),2))
+        #return Response({"msg":[unitprice, totalprice]})
+        serializer.save(
+            user=self.request.user,
+            unit_price=unitprice,
+            price=totalprice
+        )
 
     def delete(self, request, *args, **kwargs):
-        cart = Cart.objects.filter(user=self.request.user)
+        cart = Cart.objects.filter(user=request.user)
         cart.delete()
         return Response(status = status.HTTP_204_NO_CONTENT)
 

@@ -18,6 +18,6 @@ class IsUserDeliveryCrew(permissions.BasePermission):
 class IsUserCustomer(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.user:
-            if request.user.groups.filter(name=""):
+            if not (request.user.groups.filter(name="Delivery Crew") or request.user.groups.filter(name="Manager")) :
                 return True
         return False

@@ -23,6 +23,9 @@ After run server
     a. email    - delcrew{#}@ll.com  [delcrew1@ll.com]
     b. username - delcrew{#}         [delcrew1]
     c. password - Manager@{###}      [Manager@001]
+ 4. Customer
+    a. username - customer1
+    b. password - AdminUser@001
 
     
 be61070a52ff4f325d1f5072c9a1e6f6ab914782
