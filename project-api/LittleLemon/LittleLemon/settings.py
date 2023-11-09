@@ -135,11 +135,15 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAdminUser',
+    ),
     'DEFAULT_THROTLE_RATES': {
         'anon': '2/minute',
         'user': '10/minute'
     }
 }
+
 
 DJOSER = {
     'USER_ID_FIELD' : 'username'

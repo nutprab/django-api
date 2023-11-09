@@ -24,22 +24,22 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = ["id", "name"]
 
 class CartSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField()
-    menuitem = serializers.StringRelatedField()
+    user = UserSerializer
+    menuitem = MenuItemSerializer
     class Meta:
         model = Cart
         fields = ['id', 'user', 'menuitem', 'quantity', 'unit_price', 'price']
 
 class OrderSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField()
-    delivery_crew = serializers.StringRelatedField()
+    user = UserSerializer
+    delivery_crew = UserSerializer
     class Meta:
         model = Order
         fields = ['id', 'user', 'delivery_crew', 'status', 'total', 'date']
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    order = OrderSerializer()
-    menuitem = MenuItemSerializer()
+    order = OrderSerializer
+    menuitem = MenuItemSerializer
     class Meta:
         model = OrderItem
         fields = ['id', 'order', 'menuitem', 'quantity', 'unit_price', 'price']
