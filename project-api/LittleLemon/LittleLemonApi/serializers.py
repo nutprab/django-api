@@ -25,23 +25,20 @@ class GroupSerializer(serializers.ModelSerializer):
 
 class CartSerializer(serializers.ModelSerializer):
     menuitem = MenuItemSerializer(read_only=True)
-    menuitem_id = serializers.IntegerField(write_only=True)
-    unit_price = serializers.DecimalField(max_digits=6, decimal_places=2, read_only=True)
-    price = serializers.DecimalField(max_digits=6, decimal_places=2, read_only=True)
     class Meta:
         model = Cart
-        fields = ['id', 'menuitem', "menuitem_id", 'quantity', 'unit_price', 'price']
+        fields = "__all__"
 
 class OrderSerializer(serializers.ModelSerializer):
-    user = UserSerializer
-    delivery_crew = UserSerializer
+    user = UserSerializer(read_only=True)
+    delivery_crew = UserSerializer(read_only=True)
     class Meta:
         model = Order
-        fields = ['id', 'user', 'delivery_crew', 'status', 'total', 'date']
+        fields = "__all__"
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    order = OrderSerializer
-    menuitem = MenuItemSerializer
+    order = OrderSerializer(read_only=True)
+    menuitem = MenuItemSerializer(read_only=True)
     class Meta:
         model = OrderItem
         fields = ['id', 'order', 'menuitem', 'quantity', 'unit_price', 'price']

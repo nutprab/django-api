@@ -8,4 +8,5 @@ urlpatterns = [
     path('groups/<group_name>/users', views.GroupUserView.as_view()),
     path('groups/<group_name>/users/<int:id>', views.GroupUserView.as_view()),
     path('cart/menu-items', views.CartMenuItemView.as_view()),
+    path('orders/', views.OrderView.as_view()),
 ]

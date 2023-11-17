@@ -4,6 +4,7 @@ from rest_framework.response import Response
 
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User, Group
+from django.forms.models import model_to_dict
 
 from .permissions import IsUserManager, IsUserDeliveryCrew, IsUserCustomer
 from .models import Category, MenuItem, Cart, Order, OrderItem
@@ -97,24 +98,40 @@ class CartMenuItemView(generics.ListCreateAPIView, generics.DestroyAPIView):
     def get_queryset(self):
         return Cart.objects.filter(user=self.request.user)
 
-    def perform_create(self, serializer):
-        request = self.request
+    def post(self, request):
         id = int(request.data.get("menuitem_id"))
         menuitem = MenuItem.objects.all().filter(id=id)
         menuitemserializer = MenuItemSerializer(menuitem, many=True)
         unitprice = menuitemserializer.data[0]["price"]
-        totalprice = str(round(float(unitprice) * float(self.request.data.get("quantity")),2))
-        #return Response({"msg":[unitprice, totalprice]})
-        serializer.save(
-            user=self.request.user,
-            unit_price=unitprice,
-            price=totalprice
-        )
+        quantity = request.data.get("quantity")
+        totalprice = str(round(float(unitprice) * float(quantity),2))
+        existingCart = Cart.objects.all().filter(user=request.user, menuitem=id)
+        count = existingCart.count()
+        data = {
+            "user": request.user.id,
+            "menuitem": id,
+            "quantity": quantity,
+            "unit_price": unitprice,
+            "price": totalprice
+        }
+        if count>0:
+            existingCartSerializer = CartSerializer(instance=existingCart[0], data=data)
+            existingCartSerializer.is_valid()
+            existingCartSerializer.validated_data
+            existingCartSerializer.save()
+            return Response({"existingCart": existingCartSerializer.data})
+        else:
+            newCartSerializer = CartSerializer(data=data)
+            newCartSerializer.is_valid()
+            # newCartSerializer.errors
+            newCartSerializer.validated_data
+            newCartSerializer.save()
+            return Response({"newCart": newCartSerializer.data})
 
-    def delete(self, request, *args, **kwargs):
-        cart = Cart.objects.filter(user=request.user)
+    def delete(self, request):
+        cart = Cart.objects.filter(user=request.user, menuitem_id=request.data.get("menuitem_id"))
         cart.delete()
-        return Response(status = status.HTTP_204_NO_CONTENT)
+        return Response({"deletedItem": request.data.get("menuitem_id")},status = status.HTTP_204_NO_CONTENT)
 
 
 class OrderView(generics.ListCreateAPIView):
