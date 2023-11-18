@@ -18,14 +18,33 @@ After run server
  2. Managers
     a. email    - manager{#}@ll.com  [manager1@ll.com]
     b. username - manager{#}         [manager1]
-    b. password - Deliver@{###}      [Delivery@001]
+    c. password - Deliver@{###}      [Delivery@001]
+    d. Auth Token = be61070a52ff4f325d1f5072c9a1e6f6ab914782
  3. Delivery Crew
     a. email    - delcrew{#}@ll.com  [delcrew1@ll.com]
     b. username - delcrew{#}         [delcrew1]
     c. password - Manager@{###}      [Manager@001]
+    d. Auth Token = fa6a81a154034d8d767be3c7fe7265cb74f9f03f
  4. Customer
     a. username - customer1
     b. password - AdminUser@001
+    c. Auth Token = 4b68938462233723521abc13b9c6a5fc863d17f2
 
     
 be61070a52ff4f325d1f5072c9a1e6f6ab914782
+
+USAGE 
+
+1. Cart
+   a. GET 
+      i. Auth Token
+   b. POST
+      i. Auth Token
+      ii. Body Params
+         1. menuitem_id = ID of menu item to be added to cart
+         2. quantity    = Quantity of menu item
+   c. DELETE
+      i. Auth Token
+      ii. Body Params
+         1. menuitem_id = ID of menu item to be deleted
+2. Order

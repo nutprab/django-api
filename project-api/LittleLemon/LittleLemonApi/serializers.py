@@ -30,7 +30,6 @@ class CartSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class OrderSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
     delivery_crew = UserSerializer(read_only=True)
     class Meta:
         model = Order
@@ -39,6 +38,8 @@ class OrderSerializer(serializers.ModelSerializer):
 class OrderItemSerializer(serializers.ModelSerializer):
     order = OrderSerializer(read_only=True)
     menuitem = MenuItemSerializer(read_only=True)
+    menuitem_id = serializers.IntegerField()
+    order_id = serializers.IntegerField()
     class Meta:
         model = OrderItem
-        fields = ['id', 'order', 'menuitem', 'quantity', 'unit_price', 'price']
+        fields = ['id', 'order', 'order_id', 'menuitem', 'menuitem_id', 'quantity', 'unit_price', 'price']

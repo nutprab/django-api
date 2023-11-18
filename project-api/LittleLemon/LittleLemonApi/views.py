@@ -6,6 +6,8 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User, Group
 from django.forms.models import model_to_dict
 
+import datetime
+
 from .permissions import IsUserManager, IsUserDeliveryCrew, IsUserCustomer
 from .models import Category, MenuItem, Cart, Order, OrderItem
 from .serializers import (
@@ -17,7 +19,6 @@ from .serializers import (
     OrderSerializer,
     OrderItemSerializer
 )
-
 
 # Create your views here.
 class MenuItemView(generics.ListCreateAPIView):
@@ -119,24 +120,36 @@ class CartMenuItemView(generics.ListCreateAPIView, generics.DestroyAPIView):
             existingCartSerializer.is_valid()
             existingCartSerializer.validated_data
             existingCartSerializer.save()
-            return Response({"existingCart": existingCartSerializer.data})
+            return Response({"existingCart": existingCartSerializer.data}, status = status.HTTP_200_OK)
         else:
             newCartSerializer = CartSerializer(data=data)
             newCartSerializer.is_valid()
             # newCartSerializer.errors
             newCartSerializer.validated_data
             newCartSerializer.save()
-            return Response({"newCart": newCartSerializer.data})
+            return Response({"newCart": newCartSerializer.data}, status = status.HTTP_201_CREATED)
 
     def delete(self, request):
         cart = Cart.objects.filter(user=request.user, menuitem_id=request.data.get("menuitem_id"))
         cart.delete()
         return Response({"deletedItem": request.data.get("menuitem_id")},status = status.HTTP_204_NO_CONTENT)
 
-
 class OrderView(generics.ListCreateAPIView):
-    permission_classes = [IsAdminUser | IsUserManager | IsUserDeliveryCrew | IsUserCustomer]
     serializer_class = OrderSerializer
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            self.permission_classes = [IsUserCustomer]
+        elif self.request.method == "PUT":
+            self.permission_classes = [IsAdminUser | IsUserManager]
+        elif self.request.method == "PATCH":
+            self.permission_classes = [IsAdminUser | IsUserManager | IsUserDeliveryCrew]
+        elif self.request.method == "DELETE":
+            self.permission_classes == [IsAdminUser | IsUserManager]
+        else:
+            self.permission_classes = [IsAdminUser | IsUserManager | IsUserDeliveryCrew | IsUserCustomer]
+        return super().get_permissions()
+
     
     def get_queryset(self, orderid=None):
         queryset = Order.objects.all()
@@ -148,19 +161,126 @@ class OrderView(generics.ListCreateAPIView):
             queryset = queryset.filter(delivery_crew=self.request.user)
         return queryset
     
-    def create(self, request, *args, **kwargs):
-        if IsUserCustomer:
-            usercart = Cart.objects.all().filter(user=request.user)
-            if usercart.count() == 0:
-                return_response = {
-                    "message": "{0}'s Cart is Empty!".format(request.user.username)
-                }
-                return Response(return_response)
-            data = request.data.copy()
-            data["total"] = sum([item["price"] for item in usercart.values])
-            data["user"] = request.user
-            order_serializer = OrderSerializer(data=data)
-            if order_serializer.is_valid():
-                order_serializer.save()
-                
+    def get_user_cart(self, user):
+        return Cart.objects.all().filter(user=user)
 
+    def get_user_open_order(self, user):
+        return Order.objects.all().filter(user=user, status=0)
+
+    def save_serializer(self, serializer, data, instance = None):
+        success = 0
+        tempserializer = None
+        if instance==None:
+            tempserializer = serializer(data=data)
+        else:
+            tempserializer = serializer(instance=instance, data=data)
+        
+        if tempserializer:
+            tempserializer.is_valid()
+            tempserializer.validated_data
+            tempserializer.save()
+            success=1
+        return success
+
+    def create_new_order(self, request, userCart):
+        total_price = sum([item["price"] for item in userCart.values()])
+        orderData = {
+            "user" : request.user.id,
+            "deliver_crew": None,
+            "status": 0,
+            "total": total_price,
+            "date": datetime.date.today()
+        }
+        newOrderSerializer = OrderSerializer(data=orderData)
+        newOrderSerializer.is_valid()
+        newOrderSerializer.validated_data
+        newOrderSerializer.save()
+
+        newOrderId = newOrderSerializer.data["id"]
+
+        for item in userCart.values():
+            orderItemData = {
+                "order_id": newOrderId,
+                "menuitem_id": item["id"],
+                "quantity": item["quantity"],
+                "unit_price": item["unit_price"],
+                "price": item["price"]    
+            }
+            orderItemSerializer = OrderItemSerializer(data=orderItemData)
+            orderItemSerializer.is_valid()
+            orderItemSerializer.validated_data
+            orderItemSerializer.save()
+
+        response_data = {
+            "OrderData": newOrderSerializer.data,
+            "OrderItemData": orderItemSerializer.data,
+            "CartData": userCart.values()
+        }
+        return "New Order Created", response_data
+
+    def update_existing_open_order(self, request, userOrder, userCart):
+        userOrderId = userOrder.values()[0]["id"]
+        total_price = sum([item["price"] for item in userCart.values()])
+        for item in userCart.values():
+            orderItemData = {
+                "order_id": userOrderId,
+                "menuitem_id": item["id"],
+                "quantity": item["quantity"],
+                "unit_price": item["unit_price"],
+                "price": item["price"]    
+            }
+            existingOrderItem = OrderItem.objects.all().filter(order=userOrderId, menuitem_id=item["id"])
+            orderItemSerializer = None
+            if existingOrderItem.count() > 0:
+                orderItemData["quantity"] += existingOrderItem.values[0]["quantity"]
+                orderItemData["price"] = orderItemData["unit_price"] * orderItemData["quantity"]
+                total_price += orderItemData["price"]
+                orderItemSerializer = OrderItemSerializer(instance=existingOrderItem[0], data=orderItemData)
+            else:
+                orderItemSerializer = OrderItemSerializer(data=orderItemData)
+            orderItemSerializer.is_valid()
+            orderItemSerializer.validated_data
+            orderItemSerializer.save()
+
+        orderData = {
+            "user" : request.user.id,
+            "deliver_crew": None,
+            "status": 0,
+            "total": total_price,
+            "date": datetime.date.today()
+        }
+        newOrderSerializer = OrderSerializer(instance=userOrder[0], data=orderData)
+        newOrderSerializer.is_valid()
+        newOrderSerializer.validated_data
+        newOrderSerializer.save()
+        
+        response_data = {
+            "OrderData": newOrderSerializer.data,
+            "OrderItemData": orderItemSerializer.data,
+            "CartData": userCart.values
+        }
+        return "Updated existing order", response_data
+
+    def post(self, request):
+        response = {
+            "message": "",
+            "data": {}
+        }
+        response_status = status.HTTP_200_OK
+
+        userCart = self.get_user_cart(request.user)
+        userOrder = self.get_user_open_order(request.user)
+        userHasCartItem = userCart.count()
+        userHasExistingOpenOrder = userOrder.count()
+        if userHasCartItem:
+            if userHasExistingOpenOrder:
+                response["message"], response["data"] = self.update_existing_open_order(request, userOrder=userOrder, userCart=userCart)
+                response_status = status.HTTP_201_CREATED
+            else:
+                response["message"], response["data"] = self.create_new_order(request, userCart=userCart)
+                response_status = status.HTTP_201_CREATED
+            userCart.delete()
+        else:
+            response["message"] = "{0}'s Cart is Empty!".format(request.user.username)
+            response_status = status.HTTP_404_NOT_FOUND
+        return Response(response, response_status)
