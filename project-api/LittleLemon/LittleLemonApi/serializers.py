@@ -30,7 +30,6 @@ class CartSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class OrderSerializer(serializers.ModelSerializer):
-    delivery_crew = UserSerializer(read_only=True)
     class Meta:
         model = Order
         fields = "__all__"

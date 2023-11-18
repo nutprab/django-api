@@ -140,25 +140,19 @@ class OrderView(generics.ListCreateAPIView):
     def get_permissions(self):
         if self.request.method == "POST":
             self.permission_classes = [IsUserCustomer]
-        elif self.request.method == "PUT":
-            self.permission_classes = [IsAdminUser | IsUserManager]
-        elif self.request.method == "PATCH":
-            self.permission_classes = [IsAdminUser | IsUserManager | IsUserDeliveryCrew]
-        elif self.request.method == "DELETE":
-            self.permission_classes == [IsAdminUser | IsUserManager]
-        else:
+        elif self.request.method == "GET":
             self.permission_classes = [IsAdminUser | IsUserManager | IsUserDeliveryCrew | IsUserCustomer]
         return super().get_permissions()
 
     
-    def get_queryset(self, orderid=None):
+    def get_queryset(self):
         queryset = Order.objects.all()
-        if IsUserCustomer:
-            queryset = queryset.filter(user=self.request.user)
-            if orderid is not None:
-                queryset = queryset.filter(id=orderid)
-        elif IsUserDeliveryCrew:
+        if self.request.user.is_staff or self.request.user.groups.filter(name="Manager"):
+            queryset = queryset
+        elif self.request.user.groups.filter(name="DeliveryCrew"):
             queryset = queryset.filter(delivery_crew=self.request.user)
+        elif not (self.request.user.groups.filter(name="DeliveryCrew") or self.request.user.groups.filter(name="Manager")):
+            queryset = queryset.filter(user=self.request.user)
         return queryset
     
     def get_user_cart(self, user):
@@ -284,3 +278,87 @@ class OrderView(generics.ListCreateAPIView):
             response["message"] = "{0}'s Cart is Empty!".format(request.user.username)
             response_status = status.HTTP_404_NOT_FOUND
         return Response(response, response_status)
+
+class OrderItemsView(generics.GenericAPIView):
+    serializer_class = OrderItemSerializer
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            self.permission_classes = [IsUserCustomer]
+        elif self.request.method == "PUT":
+            self.permission_classes = [IsAdminUser | IsUserManager]
+        elif self.request.method == "PATCH":
+            self.permission_classes = [IsAdminUser | IsUserManager | IsUserDeliveryCrew]
+        elif self.request.method == "DELETE":
+            self.permission_classes == [IsAdminUser | IsUserManager]
+        return super().get_permissions()
+    
+    def get(self, request, id):
+        order = Order.objects.all().filter(user=request.user, id=id)
+        response = {
+            "Order": "Either Order doesnot exist or Order does Not belog to you",
+            "OrderItems": "No Order Items to Show"
+        }
+        reposnse_status = status.HTTP_404_NOT_FOUND
+        if order.count() > 0 :
+            response["Order"] = OrderSerializer(order, many=True).data
+            orderItems = OrderItem.objects.all().filter(order_id=id)
+            orderItemsSerializer = OrderItemSerializer(orderItems, many=True)
+            response["OrderItems"] = orderItemsSerializer.data
+            reposnse_status = status.HTTP_200_OK
+        return Response(response, status=reposnse_status)
+
+    def put(self, request, id):
+        deliveryCrew_id = request.data.get("delivery_crew")
+        order = Order.objects.filter(id=id)
+        response = {}
+        response_status = status.HTTP_404_NOT_FOUND
+        user = User.objects.filter(id=deliveryCrew_id, groups__name="DeliveryCrew")
+        if user.count() == 0:
+            response["Error"] = "Delivery Crew member does not Exit"
+        else:
+            if order.count()>0:
+                deliveryCrew = {
+                    "delivery_crew": deliveryCrew_id
+                }
+                orderSerializer = OrderSerializer(instance=order[0], data=deliveryCrew, partial=True)
+                orderSerializer.is_valid()
+                orderSerializer.validated_data
+                orderSerializer.save()
+                response["Order"] = orderSerializer.data
+                response_status = status.HTTP_200_OK
+            else: 
+                response["Order"] = "Order doesnot exist"
+        return Response(response, status = response_status)
+    
+    def patch(self, request, id):
+        response = {}
+        response_status = status.HTTP_404_NOT_FOUND
+        order = Order.objects.filter(id=id)
+        if request.user.groups.filter(name="DeliveryCrew"):
+            order = order.filter(delivery_crew=request.user)
+            if order.count()==0:
+                response["Error"] = "This Order does not belong to you"
+                return Response(response, status = response_status)
+            
+        delivery_status = request.data.get("status")
+        if order.count()>0:
+            deliveryStatus = {
+                "status": delivery_status
+            }
+            orderSerializer = OrderSerializer(instance=order[0], data=deliveryStatus, partial=True)
+            orderSerializer.is_valid()
+            orderSerializer.validated_data
+            orderSerializer.save()
+            response["Order"] = orderSerializer.data
+            response_status = status.HTTP_200_OK
+        else: 
+            response["Order"] = "Order doesnot exist"
+        return Response(response, status = response_status)
+    
+    def delete(self, request, id):
+        response = {"status":"Item Deleted"}
+        response_status = status.HTTP_204_NO_CONTENT
+        order = Order.objects.filter(id=id)
+        order.delete()
+        return Response(response, status = response_status)

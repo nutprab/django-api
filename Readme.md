@@ -15,6 +15,7 @@ After run server
  1. superuser creds
     a. username - admin
     b. password - admin@123
+    c. Auth Token = 908a306dcdd77ba9c23f9809aff7ac48c1981253
  2. Managers
     a. email    - manager{#}@ll.com  [manager1@ll.com]
     b. username - manager{#}         [manager1]
@@ -30,8 +31,6 @@ After run server
     b. password - AdminUser@001
     c. Auth Token = 4b68938462233723521abc13b9c6a5fc863d17f2
 
-    
-be61070a52ff4f325d1f5072c9a1e6f6ab914782
 
 USAGE 
 
