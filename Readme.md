@@ -47,3 +47,20 @@ USAGE
       ii. Body Params
          1. menuitem_id = ID of menu item to be deleted
 2. Order
+   a. GET
+      i. Auth Token
+   b. POST
+      i. Auth Token
+3. Order/OrderId
+   a. GET
+      i. Auth Token
+   b. PUT - Updates Delivery Crew
+      i. Auth Token
+      ii. Body Params
+         1. delivery_crew = Id of the Delivery Crew
+   c. PATCH - Updates Delivery Status
+      i. Auth Token
+      ii. Body Params
+         1. status = 0/1 for false/true
+   d. DELETE
+      i. Auth Token
