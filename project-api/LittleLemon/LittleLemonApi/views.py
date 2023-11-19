@@ -215,43 +215,47 @@ class OrderView(generics.ListCreateAPIView):
     def update_existing_open_order(self, request, userOrder, userCart):
         userOrderId = userOrder.values()[0]["id"]
         total_price = sum([item["price"] for item in userCart.values()])
+        count = []
         for item in userCart.values():
             orderItemData = {
                 "order_id": userOrderId,
-                "menuitem_id": item["id"],
+                "menuitem_id": item["menuitem_id"],
                 "quantity": item["quantity"],
                 "unit_price": item["unit_price"],
                 "price": item["price"]    
             }
-            existingOrderItem = OrderItem.objects.all().filter(order=userOrderId, menuitem_id=item["id"])
+            existingOrderItem = OrderItem.objects.all().filter(order_id=userOrderId, menuitem_id=item["menuitem_id"])
             orderItemSerializer = None
             if existingOrderItem.count() > 0:
-                orderItemData["quantity"] += existingOrderItem.values[0]["quantity"]
+                orderItemData["quantity"] += existingOrderItem.values()[0]["quantity"]
                 orderItemData["price"] = orderItemData["unit_price"] * orderItemData["quantity"]
+                existingOrderItemData = {
+                    "quantity": orderItemData["quantity"],
+                    "price": orderItemData["price"]
+                }
                 total_price += orderItemData["price"]
-                orderItemSerializer = OrderItemSerializer(instance=existingOrderItem[0], data=orderItemData)
+                orderItemSerializer = OrderItemSerializer(instance=existingOrderItem[0], data=existingOrderItemData, partial=True)
             else:
                 orderItemSerializer = OrderItemSerializer(data=orderItemData)
             orderItemSerializer.is_valid()
             orderItemSerializer.validated_data
+            count.append(orderItemSerializer.validated_data)
             orderItemSerializer.save()
 
         orderData = {
-            "user" : request.user.id,
-            "deliver_crew": None,
-            "status": 0,
             "total": total_price,
             "date": datetime.date.today()
         }
-        newOrderSerializer = OrderSerializer(instance=userOrder[0], data=orderData)
+        newOrderSerializer = OrderSerializer(instance=userOrder[0], data=orderData, partial=True)
         newOrderSerializer.is_valid()
         newOrderSerializer.validated_data
         newOrderSerializer.save()
         
         response_data = {
             "OrderData": newOrderSerializer.data,
-            "OrderItemData": orderItemSerializer.data,
-            "CartData": userCart.values
+            "OrderItemData": orderItemSerializer.errors,
+            "CartData": userCart.values(),
+            "count": count
         }
         return "Updated existing order", response_data
 
